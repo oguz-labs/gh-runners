@@ -1,0 +1,72 @@
+---
+# ServiceAccount for GitHub Runners
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: github-runner
+  namespace: github-runners
+  labels:
+    app: github-runner
+---
+# Role with minimal permissions for runners
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: github-runner-role
+  namespace: github-runners
+rules:
+  # Allow runners to read their own pod info
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  # Allow reading config maps (if needed for configuration)
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list"]
+  # Allow reading secrets (only if workflows need to access specific secrets)
+  # Comment out if not needed
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+---
+# RoleBinding to associate ServiceAccount with Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: github-runner-rolebinding
+  namespace: github-runners
+subjects:
+- kind: ServiceAccount
+  name: github-runner
+  namespace: github-runners
+roleRef:
+  kind: Role
+  name: github-runner-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Optional: ClusterRole for runners that need cluster-wide access
+# Uncomment and customize if your workflows need to interact with cluster resources
+# apiVersion: rbac.authorization.k8s.io/v1
+# kind: ClusterRole
+# metadata:
+#   name: github-runner-cluster-role
+# rules:
+# - apiGroups: [""]
+#   resources: ["nodes"]
+#   verbs: ["get", "list"]
+# - apiGroups: [""]
+#   resources: ["namespaces"]
+#   verbs: ["get", "list"]
+# ---
+# apiVersion: rbac.authorization.k8s.io/v1
+# kind: ClusterRoleBinding
+# metadata:
+#   name: github-runner-cluster-rolebinding
+# subjects:
+# - kind: ServiceAccount
+#   name: github-runner
+#   namespace: github-runners
+# roleRef:
+#   kind: ClusterRole
+#   name: github-runner-cluster-role
+#   apiGroup: rbac.authorization.k8s.io

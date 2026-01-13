@@ -1,0 +1,13 @@
+---
+# ConfigMap for Docker daemon configuration in runners
+# Configured for GitHub Container Registry (ghcr.io)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: docker-daemon-config
+  namespace: github-runners
+data:
+  daemon.json: |
+    {
+      "registry-mirrors": []
+    }

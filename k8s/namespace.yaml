@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: github-runners
+  labels:
+    name: github-runners
+    purpose: self-hosted-runners
+---
+# Resource Quota - Limits total resources in namespace
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: runner-quota
+  namespace: github-runners
+spec:
+  hard:
+    requests.cpu: "20"        # Total CPU requests
+    requests.memory: 40Gi     # Total memory requests
+    limits.cpu: "40"          # Total CPU limits
+    limits.memory: 80Gi       # Total memory limits
+    pods: "50"                # Maximum number of pods
+---
+# Limit Range - Default limits for pods without resource specifications
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: runner-limits
+  namespace: github-runners
+spec:
+  limits:
+  - default:
+      cpu: 2                  # Default CPU limit
+      memory: 4Gi             # Default memory limit
+    defaultRequest:
+      cpu: 1                  # Default CPU request
+      memory: 2Gi             # Default memory request
+    type: Container
