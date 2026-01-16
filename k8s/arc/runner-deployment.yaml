@@ -17,7 +17,6 @@ metadata:
   name: gh-runner
   namespace: github-runners
 spec:
-  replicas: 1
   replicas: ${MIN_REPLICA_COUNT}
   
   template:
@@ -26,16 +25,14 @@ spec:
         app: github-runner
     spec:
       # Custom runner image with kubectl and buildx pre-installed
-      # from .env: DOCKER_REPOSITORY
-      image: doguz2509/gh-runner:latest
+      image: ${DOCKER_REPOSITORY}
       imagePullPolicy: Always
       
       # Runner scope configuration
-      # from .env: GITHUB_OWNER/GITHUB_REPOSITORY
-      repository: doguz2509/calorimeter_ai
+      repository: ${REPOSITORY}
+      organization: ${ORGANIZATION}
       
       # Runner labels (used in workflow: runs-on: [self-hosted, ...])
-      # from .env: RUNNER_LABELS
       labels:
         - self-hosted
         - kubernetes
@@ -94,33 +91,6 @@ spec:
       # Security context
       securityContext:
         fsGroup: 1000
-      containers:
-        - name: runner
-          image: doguz2509/gh-runner:latest
-          imagePullPolicy: Always
-          securityContext:
-            privileged: true
-            allowPrivilegeEscalation: true
-            capabilities:
-              add:
-                - NET_ADMIN
-                - NET_RAW
-          env:
-            - name: GITHUB_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: github-token
-                  key: github_token
-          resources:
-            requests:
-              cpu: "2"
-              memory: "2Gi"
-            limits:
-              cpu: "4"
-              memory: "4Gi"
-          volumeMounts:
-            - name: work
-              mountPath: /runner/_work
       volumes:
         - name: work
           emptyDir: {}
@@ -134,8 +104,8 @@ metadata:
 spec:
   scaleTargetRef:
     name: gh-runner
-  minReplicas: 1
-  maxReplicas: 3
+  minReplicas: ${MIN_REPLICA_COUNT}
+  maxReplicas: ${MAX_REPLICA_COUNT}
   metrics:
     - type: PercentageRunnersBusy
       scaleUpThreshold: "0.75"

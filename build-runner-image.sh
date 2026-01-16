@@ -35,6 +35,8 @@ fi
 IMAGE_NAME="gh-runner"
 VERSION="${1:-latest}"
 DOCKERFILE_PATH="$PROJECT_ROOT/docker/Dockerfile"
+LOCAL_REGISTRY="localhost:5000"
+LOCAL_IMAGE="$IMAGE_NAME:$VERSION"
 
 
 # Colors for output
@@ -49,44 +51,34 @@ echo ""
 
 
 # Build the image (Docker Hub and GHCR tags)
+# Build the image and tag for local registry
 docker build \
     -t "$IMAGE_NAME:$VERSION" \
-    -t "$GHCR_REPO:$VERSION" \
-    -t "$DOCKER_REPO:$VERSION" \
+    -t "$IMAGE_NAME:latest" \
     -f "$DOCKERFILE_PATH" \
     "$PROJECT_ROOT/docker"
 
 
 # Tag as latest if a specific version was provided
+# Tag as latest for local registry if a specific version was provided
 if [ "$VERSION" != "latest" ]; then
-    echo -e "\n${BLUE}Tagging as latest...${NC}"
+    echo -e "\n${BLUE}Tagging as latest for local registry...${NC}"
     docker tag "$IMAGE_NAME:$VERSION" "$IMAGE_NAME:latest"
-    docker tag "$GHCR_REPO:$VERSION" "$GHCR_REPO:latest"
-    docker tag "$DOCKER_REPO:$VERSION" "$DOCKER_REPO:latest"
 fi
 
 
 echo -e "\n${GREEN}✓ Build complete!${NC}"
 echo "Images created:"
 docker images "$IMAGE_NAME" --format "  - {{.Repository}}:{{.Tag}} ({{.Size}})"
-docker images "$GHCR_REPO" --format "  - {{.Repository}}:{{.Tag}} ({{.Size}})"
-docker images "$DOCKER_REPO" --format "  - {{.Repository}}:{{.Tag}} ({{.Size}})"
+echo ""
 echo ""
 
 # Docker Hub login and push
-echo "[DEBUG] DOCKERHUB_USERNAME: $DOCKERHUB_USERNAME"
-echo "[DEBUG] DOCKERHUB_TOKEN: ${DOCKERHUB_TOKEN:0:4}... (hidden)"
-if [ -n "$DOCKERHUB_USERNAME" ] && [ -n "$DOCKERHUB_TOKEN" ]; then
-    echo -e "${BLUE}Logging in to Docker Hub as $DOCKERHUB_USERNAME...${NC}"
-    echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
-    echo -e "${BLUE}Pushing to Docker Hub: $DOCKER_REPO:$VERSION and $DOCKER_REPO:latest...${NC}"
-    docker push "$DOCKER_REPO:$VERSION"
-    docker push "$DOCKER_REPO:latest"
-else
-    echo -e "${BLUE}Docker Hub credentials not set. Skipping push to Docker Hub.${NC}"
-fi
+# Push to local Docker Desktop registry
+
 
 echo ""
 echo "Next steps:"
-echo "  1. Test the image: docker run --rm $IMAGE_NAME:$VERSION kubectl version --client"
-echo "  2. Deploy runners: kubectl apply -f k8s/arc/runner-deployment.yaml"
+echo "  1. Test the image: docker run --rm $IMAGE_NAME:latest kubectl version --client"
+echo "  2. Deploy runners: envsubst < k8s/arc/runner-deployment.yaml | kubectl apply -f -"
+echo "  (Kubernetes in Docker Desktop will use the local image automatically)"

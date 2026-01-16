@@ -1,3 +1,20 @@
+# This file has been removed as part of the merge process.
+# The original content of install.sh is no longer needed.
+
+# Install Actions Runner Controller (ARC)
+# This script installs the official GitHub Actions Runner Controller
+# using Helm charts.
+
+# set -e
+
+# echo "=== Installing Actions Runner Controller ==="
+
+# Configuration
+# ARC_NAMESPACE="actions-runner-system"
+# ARC_RELEASE_NAME="arc"
+# ARC_VERSION=""  # Leave empty for latest, or specify version like "0.27.4"
+
+# Additional setup and configuration code has been removed.
 #!/bin/bash
 #
 # Install Actions Runner Controller (ARC)
