@@ -10,6 +10,7 @@ TARGET_TYPE=${TARGET_TYPE:-}
 TARGET_NAME=${TARGET_NAME:-}
 MIN_REPLICA_COUNT=${MIN_REPLICA_COUNT:-1}
 MAX_REPLICA_COUNT=${MAX_REPLICA_COUNT:-}
+GITHUB_TOKEN=${GITHUB_TOKEN:-}
 
 # Interactive prompts if not set
 if [ -z "$TARGET_TYPE" ]; then
@@ -34,6 +35,12 @@ if [ -z "$MAX_REPLICA_COUNT" ]; then
   exit 1
 fi
 
+# Prompt for GitHub token if not set
+if [ -z "$GITHUB_TOKEN" ]; then
+  read -rsp "Enter your GitHub Personal Access Token (GITHUB_TOKEN): " GITHUB_TOKEN
+  echo
+fi
+
 # Export for use in other scripts or k8s manifests
 echo "\nConfiguration:"
 echo "  Target type: $TARGET_TYPE"
@@ -41,12 +48,17 @@ echo "  Target name: $TARGET_NAME"
 echo "  Min replica count: $MIN_REPLICA_COUNT"
 echo "  Max replica count: $MAX_REPLICA_COUNT"
 
-# Optionally, write to a config file for use by other scripts
-cat > install-config.env <<EOF
-TARGET_TYPE=$TARGET_TYPE
-TARGET_NAME=$TARGET_NAME
-MIN_REPLICA_COUNT=$MIN_REPLICA_COUNT
-MAX_REPLICA_COUNT=$MAX_REPLICA_COUNT
-EOF
+echo "  GitHub token: ${GITHUB_TOKEN:+***hidden***}"
+
+# Write the GitHub token to k8s/secrets.yaml
+SECRETS_FILE="k8s/secrets.yaml"
+if [ ! -f "$SECRETS_FILE" ]; then
+  cp k8s/secrets.yaml.example "$SECRETS_FILE"
+fi
+
+# Replace the github_token value in secrets.yaml
+sed -i '' "s|github_token:.*|github_token: \"$GITHUB_TOKEN\"|" "$SECRETS_FILE"
+
+echo "GitHub token stored in $SECRETS_FILE as a Kubernetes secret."
 
 echo "\nConfiguration saved to install-config.env. Use this file to template your deployment."
