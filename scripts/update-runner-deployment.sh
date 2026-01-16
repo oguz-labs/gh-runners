@@ -2,7 +2,6 @@
 #
 # Update runner-deployment.yaml with values from .env
 # This script updates the runner deployment configuration based on .env settings
-#
 
 set -e
 
@@ -48,39 +47,39 @@ fi
 SCOPE_YAML=""
 SCOPE_DESC=""
 case "${RUNNER_SCOPE:-repository}" in
-    repository)
-        if [ -z "$GITHUB_OWNER" ] || [ "$GITHUB_OWNER" == "your-github-username-or-org" ]; then
-            echo -e "${RED}ERROR: GITHUB_OWNER is required for repository scope${NC}"
-            exit 1
-        fi
-        if [ -z "$GITHUB_REPOSITORY" ] || [ "$GITHUB_REPOSITORY" == "your-repo-name" ]; then
-            echo -e "${RED}ERROR: GITHUB_REPOSITORY is required for repository scope${NC}"
-            exit 1
-        fi
-        SCOPE_YAML="      repository: $GITHUB_OWNER/$GITHUB_REPOSITORY"
-        SCOPE_DESC="Repository: $GITHUB_OWNER/$GITHUB_REPOSITORY"
-        ;;
-    organization)
-        if [ -z "$GITHUB_ORGANIZATION" ]; then
-            echo -e "${RED}ERROR: GITHUB_ORGANIZATION is required for organization scope${NC}"
-            exit 1
-        fi
-        SCOPE_YAML="      organization: $GITHUB_ORGANIZATION"
-        SCOPE_DESC="Organization: $GITHUB_ORGANIZATION"
-        ;;
-    enterprise)
-        if [ -z "$GITHUB_ENTERPRISE" ]; then
-            echo -e "${RED}ERROR: GITHUB_ENTERPRISE is required for enterprise scope${NC}"
-            exit 1
-        fi
-        SCOPE_YAML="      enterprise: $GITHUB_ENTERPRISE"
-        SCOPE_DESC="Enterprise: $GITHUB_ENTERPRISE"
-        ;;
-    *)
-        echo -e "${RED}ERROR: Invalid RUNNER_SCOPE: $RUNNER_SCOPE${NC}"
-        echo "Valid values: repository, organization, enterprise"
-        exit 1
-        ;;
+  repository)
+    if [ -z "$GITHUB_OWNER" ] || [ "$GITHUB_OWNER" == "your-github-username-or-org" ]; then
+      echo -e "${RED}ERROR: GITHUB_OWNER is required for repository scope${NC}"
+      exit 1
+    fi
+    if [ -z "$GITHUB_REPOSITORY" ] || [ "$GITHUB_REPOSITORY" == "your-repo-name" ]; then
+      echo -e "${RED}ERROR: GITHUB_REPOSITORY is required for repository scope${NC}"
+      exit 1
+    fi
+    SCOPE_YAML="      repository: $GITHUB_OWNER/$GITHUB_REPOSITORY"
+    SCOPE_DESC="Repository: $GITHUB_OWNER/$GITHUB_REPOSITORY"
+    ;;
+  organization)
+    if [ -z "$GITHUB_ORGANIZATION" ]; then
+      echo -e "${RED}ERROR: GITHUB_ORGANIZATION is required for organization scope${NC}"
+      exit 1
+    fi
+    SCOPE_YAML="      organization: $GITHUB_ORGANIZATION"
+    SCOPE_DESC="Organization: $GITHUB_ORGANIZATION"
+    ;;
+  enterprise)
+    if [ -z "$GITHUB_ENTERPRISE" ]; then
+      echo -e "${RED}ERROR: GITHUB_ENTERPRISE is required for enterprise scope${NC}"
+      exit 1
+    fi
+    SCOPE_YAML="      enterprise: $GITHUB_ENTERPRISE"
+    SCOPE_DESC="Enterprise: $GITHUB_ENTERPRISE"
+    ;;
+  *)
+    echo -e "${RED}ERROR: Invalid RUNNER_SCOPE: $RUNNER_SCOPE${NC}"
+    echo "Valid values: repository, organization, enterprise"
+    exit 1
+    ;;
 esac
 
 # Set default values
@@ -101,8 +100,8 @@ echo "  Memory: $RUNNER_MEMORY_REQUEST - $RUNNER_MEMORY_LIMIT"
 
 # Backup existing deployment
 if [ -f "$RUNNER_DEPLOYMENT" ]; then
-    echo -e "\n${YELLOW}Creating backup: $(basename $RUNNER_DEPLOYMENT_BACKUP)${NC}"
-    cp "$RUNNER_DEPLOYMENT" "$RUNNER_DEPLOYMENT_BACKUP"
+  echo -e "\n${YELLOW}Creating backup: $(basename $RUNNER_DEPLOYMENT_BACKUP)${NC}"
+  cp "$RUNNER_DEPLOYMENT" "$RUNNER_DEPLOYMENT_BACKUP"
 fi
 
 # Convert comma-separated labels to YAML array
@@ -175,6 +174,7 @@ $(echo -e "$LABELS_YAML")
       # Security context
       securityContext:
         fsGroup: 1000
+          # privileged: true
 
 ---
 # Horizontal Runner Autoscaler
@@ -198,6 +198,7 @@ spec:
       scaleDownFactor: "0.5"
   
   scaleDownDelaySecondsAfterScaleOut: 300
+
 EOF
 
 echo -e "${GREEN}✓ Runner deployment updated successfully${NC}"

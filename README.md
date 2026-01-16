@@ -1,3 +1,45 @@
+
+# gh-runners-k8s: Distributable GitHub Runner on Kubernetes
+
+## Quick Start (Distribution)
+
+1. **Clone the repository:**
+   ```sh
+   git clone https://github.com/oguz-labs/gh-runners.git
+   cd gh-runners
+   ```
+
+2. **Run the install script:**
+   ```sh
+   ./install.sh
+   ```
+   The script will prompt you for:
+   - Target type (`project` or `organisation`)
+   - Target name (string)
+   - Min replica count (optional, default: 1)
+   - Max replica count (mandatory)
+
+   You can also set these as environment variables:
+   ```sh
+   TARGET_TYPE=project TARGET_NAME=myrepo MIN_REPLICA_COUNT=2 MAX_REPLICA_COUNT=5 ./install.sh
+   ```
+
+   The configuration will be saved to `install-config.env` for use in deployment manifests.
+
+3. **Deploy to Kubernetes:**
+   Update your deployment manifests (e.g., `k8s/arc/runner-deployment.yaml`) to use the variables from `install-config.env`.
+
+## Parameters
+
+- **TARGET_TYPE**: `project` or `organisation` (required)
+- **TARGET_NAME**: Name of the target (required)
+- **MIN_REPLICA_COUNT**: Minimum number of runner replicas (optional, default: 1)
+- **MAX_REPLICA_COUNT**: Maximum number of runner replicas (required)
+
+## Distribution
+
+This project is designed for easy distribution. Anyone can clone the repository, run the install script, and deploy their own GitHub runners to Kubernetes with custom configuration.
+
 # GitHub Runners on Kubernetes
 
 Kubernetes setup for running GitHub Actions self-hosted runners on-demand using Actions Runner Controller (ARC).
@@ -267,7 +309,8 @@ gh_runners_k8s/
 
 This setup uses **GitHub Container Registry (GHCR)** for storing container images.
 
-For detailed information on image naming conventions and workflows, see [GHCR_USAGE.md](GHCR_USAGE.md).
+
+For local registry setup, see https://github.com/oguz-labs/local-registry.git
 
 **Image naming convention:**
 ```

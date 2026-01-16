@@ -1,3 +1,11 @@
+# This deployment manifest uses environment variables from install-config.env
+# to configure the GitHub runner deployment.
+#
+# Usage:
+#   export $(grep -v '^#' ../../install-config.env | xargs)
+#   envsubst < runner-deployment.yaml | kubectl apply -f -
+# ...existing code...
+
 ---
 # RunnerDeployment with Auto-Scaling
 # Auto-generated from .env file
@@ -10,20 +18,28 @@ metadata:
   namespace: github-runners
 spec:
   replicas: 1
+  replicas: ${MIN_REPLICA_COUNT}
   
   template:
     metadata:
       labels:
         app: github-runner
     spec:
+      # Custom runner image with kubectl and buildx pre-installed
+      # from .env: DOCKER_REPOSITORY
+      image: doguz2509/gh-runner:latest
+      imagePullPolicy: Always
+      
       # Runner scope configuration
+      # from .env: GITHUB_OWNER/GITHUB_REPOSITORY
       repository: doguz2509/calorimeter_ai
       
       # Runner labels (used in workflow: runs-on: [self-hosted, ...])
+      # from .env: RUNNER_LABELS
       labels:
         - self-hosted
         - kubernetes
-        - on-demand      
+        - on-demand
       # Ephemeral runners: each runner handles only one job then terminates
       ephemeral: true
       
@@ -37,30 +53,78 @@ spec:
             secretKeyRef:
               name: github-token
               key: github_token
+        - name: DOCKER_DRIVER
+          value: vfs
+        - name: TARGET_TYPE
+          value: "${TARGET_TYPE}"
+        - name: TARGET_NAME
+          value: "${TARGET_NAME}"
+        - name: MIN_REPLICA_COUNT
+          value: "${MIN_REPLICA_COUNT}"
+        - name: MAX_REPLICA_COUNT
+          value: "${MAX_REPLICA_COUNT}"
       
       # Resource requests and limits
+      # from .env: RUNNER_CPU_REQUEST, RUNNER_CPU_LIMIT, RUNNER_MEMORY_REQUEST, RUNNER_MEMORY_LIMIT
       resources:
         requests:
-          cpu: "500m"
-          memory: "1Gi"
-        limits:
-          cpu: "1"
+          cpu: "2"
           memory: "2Gi"
+        limits:
+          cpu: "4"
+          memory: "4Gi"
       
       # Volume mounts for workspace
       volumeMounts:
         - name: work
           mountPath: /runner/_work
+        - name: docker-lib
+          mountPath: /var/lib/docker
+        - name: docker-run
+          mountPath: /var/run/docker
       
       volumes:
         - name: work
+          emptyDir: {}
+        - name: docker-lib
+          emptyDir: {}
+        - name: docker-run
           emptyDir: {}
       
       # Security context
       securityContext:
         fsGroup: 1000
+      containers:
+        - name: runner
+          image: doguz2509/gh-runner:latest
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+            allowPrivilegeEscalation: true
+            capabilities:
+              add:
+                - NET_ADMIN
+                - NET_RAW
+          env:
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: github-token
+                  key: github_token
+          resources:
+            requests:
+              cpu: "2"
+              memory: "2Gi"
+            limits:
+              cpu: "4"
+              memory: "4Gi"
+          volumeMounts:
+            - name: work
+              mountPath: /runner/_work
+      volumes:
+        - name: work
+          emptyDir: {}
 
----
 # Horizontal Runner Autoscaler
 apiVersion: actions.summerwind.dev/v1alpha1
 kind: HorizontalRunnerAutoscaler
@@ -70,15 +134,12 @@ metadata:
 spec:
   scaleTargetRef:
     name: gh-runner
-  
-  minReplicas: 0
-  maxReplicas: 2
-  
+  minReplicas: 1
+  maxReplicas: 3
   metrics:
     - type: PercentageRunnersBusy
       scaleUpThreshold: "0.75"
       scaleDownThreshold: "0.25"
       scaleUpFactor: "2"
       scaleDownFactor: "0.5"
-  
   scaleDownDelaySecondsAfterScaleOut: 300

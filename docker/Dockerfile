@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     jq \
     ca-certificates \
+    nftables \
+    iptables \
     && rm -rf /var/lib/apt/lists/*
 
 # Install kubectl
