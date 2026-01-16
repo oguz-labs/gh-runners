@@ -1,3 +1,4 @@
+
 #!/bin/bash
 
 # install.sh - Setup script for gh-runners-k8s distribution
@@ -49,16 +50,20 @@ echo "  Min replica count: $MIN_REPLICA_COUNT"
 echo "  Max replica count: $MAX_REPLICA_COUNT"
 
 echo "  GitHub token: ${GITHUB_TOKEN:+***hidden***}"
-
-# Write the GitHub token to k8s/secrets.yaml
-SECRETS_FILE="k8s/secrets.yaml"
-if [ ! -f "$SECRETS_FILE" ]; then
-  cp k8s/secrets.yaml.example "$SECRETS_FILE"
+# Ensure the namespace exists
+if ! kubectl get namespace github-runners >/dev/null 2>&1; then
+  echo "Creating namespace github-runners..."
+  kubectl create namespace github-runners
+else
+  echo "Namespace github-runners already exists."
 fi
+# Create the Kubernetes secret directly (do not write token to any file)
+echo "Creating GitHub token secret in Kubernetes..."
+kubectl create secret generic github-token \
+  --from-literal=github_token="$GITHUB_TOKEN" \
+  --namespace=github-runners \
+  --dry-run=client -o yaml | kubectl apply -f -
 
-# Replace the github_token value in secrets.yaml
-sed -i '' "s|github_token:.*|github_token: \"$GITHUB_TOKEN\"|" "$SECRETS_FILE"
-
-echo "GitHub token stored in $SECRETS_FILE as a Kubernetes secret."
+echo "GitHub token secret created in Kubernetes (namespace: github-runners). Token was never written to disk."
 
 echo "\nConfiguration saved to install-config.env. Use this file to template your deployment."
