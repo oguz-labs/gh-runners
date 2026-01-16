@@ -7,7 +7,7 @@ k8s/secrets.yaml
 *.pem
 
 # Environment variables
-.env
+.env*
 .env.local
 .env.*.local
 
