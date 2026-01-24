@@ -6,11 +6,35 @@ USER root
 # Install dependencies
 RUN apt-get update && apt-get install -y \
     curl \
+    wget \
     jq \
     ca-certificates \
     nftables \
     iptables \
+    sudo \
+    software-properties-common \
     && rm -rf /var/lib/apt/lists/*
+
+# Add deadsnakes PPA for Python 3.14 and install it
+RUN add-apt-repository ppa:deadsnakes/ppa && \
+    apt-get update && apt-get install -y \
+    python3.14 \
+    python3.14-venv \
+    python3.14-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install pip for Python 3.14 and expose common symlinks
+RUN python3.14 -m ensurepip --upgrade \
+    && ln -sf /usr/bin/pip3.14 /usr/local/bin/pip3.14 \
+    && ln -sf /usr/bin/pip3.14 /usr/local/bin/pip3 \
+    && ln -sf /usr/bin/pip3.14 /usr/local/bin/pip \
+    && ln -sf /usr/bin/python3.14 /usr/local/bin/python3
+
+# Add runner user to sudoers (no password required)
+RUN echo "runner ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Create python3.14 symlink for convenience
+RUN ln -sf /usr/bin/python3.14 /usr/local/bin/python3.14
 
 # Install kubectl
 RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
