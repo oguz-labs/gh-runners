@@ -51,6 +51,10 @@ RUN BUILDX_VERSION=$(curl -s https://api.github.com/repos/docker/buildx/releases
     && cp /root/.docker/cli-plugins/docker-buildx /home/runner/.docker/cli-plugins/docker-buildx \
     && chown -R runner:runner /home/runner/.docker
 
+# Allow insecure local JFrog registry over HTTP (host gateway + loopback)
+RUN mkdir -p /etc/docker \
+    && echo '{ "insecure-registries": ["host.docker.internal:8081", "127.0.0.1:8081"] }' > /etc/docker/daemon.json
+
 # Verify installations
 RUN echo "=== Installed versions ===" \
     && kubectl version --client --short 2>/dev/null || kubectl version --client \

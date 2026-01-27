@@ -18,6 +18,7 @@ spec:
     spec:
       image: gh-runner:latest
       imagePullPolicy: IfNotPresent
+      dockerdWithinRunnerContainer: true
       # Runner scope configuration
       organization: oguz-labs
       
@@ -39,6 +40,8 @@ spec:
             secretKeyRef:
               name: github-token
               key: github_token
+        - name: DOCKER_INSECURE_REGISTRY
+          value: host.docker.internal:8081
       
       # Resource requests and limits
       resources:
