@@ -37,7 +37,7 @@ RUN echo "runner ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 RUN ln -sf /usr/bin/python3.11 /usr/local/bin/python3.11
 
 # Install kubectl
-RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
+RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/arm64/kubectl" \
     && chmod +x kubectl \
     && mv kubectl /usr/local/bin/kubectl \
     && kubectl version --client
@@ -46,7 +46,7 @@ RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/s
 RUN BUILDX_VERSION=$(curl -s https://api.github.com/repos/docker/buildx/releases/latest | jq -r '.tag_name') \
     && mkdir -p /root/.docker/cli-plugins /home/runner/.docker/cli-plugins \
     && curl -Lo /root/.docker/cli-plugins/docker-buildx \
-       "https://github.com/docker/buildx/releases/download/${BUILDX_VERSION}/buildx-${BUILDX_VERSION}.linux-amd64" \
+       "https://github.com/docker/buildx/releases/download/${BUILDX_VERSION}/buildx-${BUILDX_VERSION}.linux-arm64" \
     && chmod +x /root/.docker/cli-plugins/docker-buildx \
     && cp /root/.docker/cli-plugins/docker-buildx /home/runner/.docker/cli-plugins/docker-buildx \
     && chown -R runner:runner /home/runner/.docker

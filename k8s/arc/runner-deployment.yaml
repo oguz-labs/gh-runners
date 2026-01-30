@@ -16,8 +16,8 @@ spec:
       labels:
         app: github-runner
     spec:
-      image: gh-runner:latest
-      imagePullPolicy: IfNotPresent
+      image: localhost:32000/gh-runner:latest
+      imagePullPolicy: Always
       dockerdWithinRunnerContainer: true
       # Runner scope configuration
       organization: oguz-labs
