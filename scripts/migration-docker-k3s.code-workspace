@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "../../migration-docker-k3s"
+		},
+		{
+			"path": ".."
+		}
+	],
+	"settings": {}
+}
