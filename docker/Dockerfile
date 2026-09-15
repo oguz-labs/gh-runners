@@ -40,7 +40,8 @@ RUN ln -sf /usr/bin/python3.11 /usr/local/bin/python3.11
 RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/arm64/kubectl" \
     && chmod +x kubectl \
     && mv kubectl /usr/local/bin/kubectl \
-    && kubectl version --client
+    && kubectl version --client \
+    && curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
 # Install Docker buildx for both root and runner users
 RUN BUILDX_VERSION=$(curl -s https://api.github.com/repos/docker/buildx/releases/latest | jq -r '.tag_name') \
@@ -55,9 +56,27 @@ RUN BUILDX_VERSION=$(curl -s https://api.github.com/repos/docker/buildx/releases
 RUN mkdir -p /etc/docker \
     && echo '{ "insecure-registries": ["host.docker.internal:8081", "127.0.0.1:8081"] }' > /etc/docker/daemon.json
 
+# Pre-bake Playwright + Chromium so CI jobs don't re-download ~150MB per run.
+# The version range mirrors oguz-labs/elastic-automation engine/requirements.txt.
+# PLAYWRIGHT_BROWSERS_PATH must be a real ENV (not a build-time export): without
+# it the runner user looks in ~/.cache/ms-playwright and downloads anyway.
+# /ms-playwright is owned by runner so that a workflow's `playwright install`
+# safety net can still write there if the runtime pip resolves a newer 1.x
+# (different browser revision) than the one baked here.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN mkdir -p /ms-playwright \
+    && python3 -m pip install --no-cache-dir 'playwright>=1.40,<2' \
+    && apt-get update \
+    && python3 -m playwright install --with-deps chromium \
+    && rm -rf /var/lib/apt/lists/* \
+    && chown -R runner:runner /ms-playwright
+
 # Verify installations
 RUN echo "=== Installed versions ===" \
     && kubectl version --client --short 2>/dev/null || kubectl version --client \
+    && helm version \
+    && python3 -m playwright --version \
+    && ls /ms-playwright \
     && echo "Docker buildx installed for root and runner users"
 
 USER runner
