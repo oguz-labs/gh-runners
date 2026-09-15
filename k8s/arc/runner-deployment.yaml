@@ -2,6 +2,14 @@
 # RunnerDeployment with Auto-Scaling
 # Auto-generated from .env file
 # Generated on: Sat Jan 24 15:08:24 IST 2026
+#
+# NOT the live source of truth. The actual RunnerDeployment/HorizontalRunnerAutoscaler
+# in the cluster is Helm-managed (release "github-runners", chart
+# oguz-lab-infra/helm/github-runners) — `kubectl get runnerdeployment gh-runner
+# -n github-runners -o yaml` carries `meta.helm.sh/release-name: github-runners`
+# and `app.kubernetes.io/managed-by: Helm`, not this file. `kubectl apply -f`
+# on this file would fight Helm for ownership of the same object. Kept here
+# for reference/history; update the Helm chart's values.yaml, not this.
 
 apiVersion: actions.summerwind.dev/v1alpha1
 kind: RunnerDeployment
@@ -16,8 +24,8 @@ spec:
       labels:
         app: github-runner
     spec:
-      image: localhost:32000/gh-runner:latest
-      imagePullPolicy: Always
+      image: localhost:5050/gh-runner:latest
+      imagePullPolicy: IfNotPresent
       dockerdWithinRunnerContainer: true
       # Runner scope configuration
       organization: oguz-labs
@@ -41,8 +49,9 @@ spec:
               name: github-token
               key: github_token
         - name: DOCKER_INSECURE_REGISTRY
-          value: host.docker.internal:8081
-      
+          value: local-registry.docker-registry.svc.cluster.local:5050
+
+
       # Resource requests and limits
       resources:
         requests:

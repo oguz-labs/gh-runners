@@ -84,7 +84,7 @@ esac
 
 # Set default values
 RUNNER_LABELS="${RUNNER_LABELS:-self-hosted,kubernetes,on-demand}"
-RUNNER_IMAGE="${RUNNER_IMAGE:-gh-runner:latest}"
+RUNNER_IMAGE="${RUNNER_IMAGE:-localhost:5050/gh-runner:latest}"
 MIN_REPLICAS="${MIN_REPLICAS:-0}"
 MAX_REPLICAS="${MAX_REPLICAS:-10}"
 RUNNER_CPU_REQUEST="${RUNNER_CPU_REQUEST:-1}"
@@ -135,7 +135,7 @@ spec:
         app: github-runner
     spec:
       image: $RUNNER_IMAGE
-      imagePullPolicy: IfNotPresent
+      imagePullPolicy: Always
       # Runner scope configuration
 $SCOPE_YAML
       
