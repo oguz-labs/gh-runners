@@ -1,8 +1,14 @@
 #!/bin/bash
 
-# Build and push custom GitHub Actions runner image to local registry
+# Build and push the custom GitHub Actions runner images to the local registry.
+# docker/Dockerfile defines two targets from a shared `base` stage: `deploy`
+# (lean, for build/push/helm jobs) and `e2e` (deploy + Java/Allure + Chromium
+# OS deps, for E2E jobs). This script builds and pushes both every time, since
+# they share cached layers and the two RunnerDeployments must stay in lockstep
+# on the same version tag.
+#
 # Usage: ./build-runner-image.sh [version]
-# Example: ./build-runner-image.sh v1.0.0
+# Example: ./build-runner-image.sh v1.2.0
 #          ./build-runner-image.sh (defaults to latest)
 
 set -e
@@ -13,10 +19,9 @@ if [ -f "$(dirname "$0")/.env" ]; then
 fi
 
 # Configuration
-IMAGE_NAME="gh-runner"
 VERSION="${1:-latest}"
 REGISTRY="localhost:5050"
-REGISTRY_IMAGE="$REGISTRY/$IMAGE_NAME"
+TARGETS=("deploy" "e2e")
 
 # Use current working directory as project root
 PROJECT_ROOT="$(pwd)"
@@ -30,11 +35,11 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}Building GitHub Actions Runner${NC}"
+echo -e "${BLUE}Building GitHub Actions Runner images${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
-echo "Image: $IMAGE_NAME:$VERSION"
-echo "Registry: $REGISTRY_IMAGE:$VERSION"
+echo "Version: $VERSION"
+echo "Targets: ${TARGETS[*]}"
 echo "Dockerfile: $DOCKERFILE_PATH"
 echo ""
 
@@ -57,33 +62,39 @@ else
 fi
 echo ""
 
-# Build image locally
-echo -e "${BLUE}Building image locally...${NC}"
-docker build \
-    -t "$IMAGE_NAME:$VERSION" \
-    -t "$IMAGE_NAME:latest" \
-    -t "$REGISTRY_IMAGE:$VERSION" \
-    -t "$REGISTRY_IMAGE:latest" \
-    -f "$PROJECT_ROOT/$DOCKERFILE_PATH" \
-    "$PROJECT_ROOT/docker"
-echo -e "${GREEN}✓ Build complete!${NC}"
-echo ""
+for TARGET in "${TARGETS[@]}"; do
+    IMAGE_NAME="gh-runner-${TARGET}"
+    REGISTRY_IMAGE="$REGISTRY/$IMAGE_NAME"
 
-# Push to local registry
-echo -e "${BLUE}Pushing to local registry ($REGISTRY)...${NC}"
-docker push "$REGISTRY_IMAGE:$VERSION"
-[ "$VERSION" != "latest" ] && docker push "$REGISTRY_IMAGE:latest"
-echo -e "${GREEN}✓ Push complete!${NC}"
-echo ""
+    echo -e "${BLUE}Building target '$TARGET' -> $IMAGE_NAME:$VERSION ...${NC}"
+    docker build \
+        --target "$TARGET" \
+        -t "$IMAGE_NAME:$VERSION" \
+        -t "$IMAGE_NAME:latest" \
+        -t "$REGISTRY_IMAGE:$VERSION" \
+        -t "$REGISTRY_IMAGE:latest" \
+        -f "$PROJECT_ROOT/$DOCKERFILE_PATH" \
+        "$PROJECT_ROOT/docker"
+    echo -e "${GREEN}✓ Build complete: $IMAGE_NAME:$VERSION${NC}"
+    echo ""
+
+    echo -e "${BLUE}Pushing $IMAGE_NAME to local registry ($REGISTRY)...${NC}"
+    docker push "$REGISTRY_IMAGE:$VERSION"
+    [ "$VERSION" != "latest" ] && docker push "$REGISTRY_IMAGE:latest"
+    echo -e "${GREEN}✓ Push complete: $IMAGE_NAME${NC}"
+    echo ""
+done
 
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}✓ Build and push completed successfully!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 echo "Images available:"
-echo "  - $REGISTRY_IMAGE:$VERSION"
-[ "$VERSION" != "latest" ] && echo "  - $REGISTRY_IMAGE:latest"
+for TARGET in "${TARGETS[@]}"; do
+    echo "  - $REGISTRY/gh-runner-${TARGET}:$VERSION"
+done
 echo ""
 echo "Next steps:"
-echo "  1. Deploy: kubectl apply -f k8s/arc/runner-deployment.yaml"
-echo "  2. Check status: kubectl get pods -n github-runners"
+echo "  1. Bump helm/github-runners/values.yaml tags in oguz-lab-infra to $VERSION"
+echo "  2. helm upgrade github-runners oguz-lab-infra/helm/github-runners -n github-runners"
+echo "  3. Check status: kubectl get pods -n github-runners"

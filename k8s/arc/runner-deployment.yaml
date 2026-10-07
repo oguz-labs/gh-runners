@@ -10,6 +10,12 @@
 # and `app.kubernetes.io/managed-by: Helm`, not this file. `kubectl apply -f`
 # on this file would fight Helm for ownership of the same object. Kept here
 # for reference/history; update the Helm chart's values.yaml, not this.
+#
+# As of the deploy/e2e image split, the live chart renders TWO flavors from
+# runners: [] in values.yaml — this file still shows only the original
+# "deploy" one (image gh-runner-deploy, was just gh-runner). The sibling
+# "gh-runner-e2e" RunnerDeployment (image gh-runner-e2e, labels
+# [..., e2e]) has no reference file here; see the chart directly.
 
 apiVersion: actions.summerwind.dev/v1alpha1
 kind: RunnerDeployment
@@ -24,7 +30,7 @@ spec:
       labels:
         app: github-runner
     spec:
-      image: localhost:5050/gh-runner:latest
+      image: localhost:5050/gh-runner-deploy:latest
       imagePullPolicy: IfNotPresent
       dockerdWithinRunnerContainer: true
       # Runner scope configuration
