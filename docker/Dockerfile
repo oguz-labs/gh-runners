@@ -1,5 +1,8 @@
-# Custom GitHub Actions Runner with kubectl and buildx pre-installed
-FROM summerwind/actions-runner-dind:latest
+# Custom GitHub Actions Runner, split into two flavors from a shared base:
+#   deploy — lean, for build/push/helm-upgrade jobs (runs-on: [..., on-demand])
+#   e2e    — deploy + Java/Allure + Chromium OS deps, for E2E jobs (runs-on: [..., e2e])
+# Build with: docker build --target deploy ... / --target e2e ...
+FROM summerwind/actions-runner-dind:latest AS base
 
 USER root
 
@@ -56,27 +59,73 @@ RUN BUILDX_VERSION=$(curl -s https://api.github.com/repos/docker/buildx/releases
 RUN mkdir -p /etc/docker \
     && echo '{ "insecure-registries": ["host.docker.internal:8081", "127.0.0.1:8081"] }' > /etc/docker/daemon.json
 
-# Pre-bake Playwright + Chromium so CI jobs don't re-download ~150MB per run.
-# The version range mirrors oguz-labs/elastic-automation engine/requirements.txt.
+# Verify base installations
+RUN echo "=== Installed versions (base) ===" \
+    && kubectl version --client --short 2>/dev/null || kubectl version --client \
+    && helm version \
+    && echo "Docker buildx installed for root and runner users"
+
+# ---------------------------------------------------------------------------
+FROM base AS deploy
+# Nothing extra: build/push/helm-upgrade jobs only need what's in `base`.
+USER runner
+
+# ---------------------------------------------------------------------------
+FROM base AS e2e
+
+# Java (JRE) for allure-commandline, which looks up `java` on PATH / JAVA_HOME
+# and otherwise fails the "Generate Allure report" step outright.
+RUN apt-get update && apt-get install -y default-jre-headless \
+    && rm -rf /var/lib/apt/lists/*
+
+# OS-level shared libs for headless Chromium. These are required at the ldconfig
+# level regardless of which runtime launches the browser — Python's `playwright`
+# pip package below, or the Node/npx-driven Chromium that Robot Framework's
+# `Browser` library (rfbrowser) downloads fresh via its own actions/setup-node
+# toolchain on every job. Listed explicitly (not via `playwright install
+# --with-deps`, which only covers whatever Playwright revision happens to be
+# invoked at bake time) so the fix holds even as that pinned revision drifts.
+# Names are Ubuntu 24.04 (noble) t64-ABI package names — confirmed against
+# this image's own /etc/os-release, not guessed.
+RUN apt-get update && apt-get install -y \
+    libnss3 \
+    libatk1.0-0t64 \
+    libatk-bridge2.0-0t64 \
+    libcups2t64 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libasound2t64 \
+    libatspi2.0-0t64 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Pre-bake the Python `playwright` pip package + its own Chromium, for any
+# workflow step that imports Python's playwright directly (not every E2E job
+# goes through rfbrowser/Node). Harmless if unused.
 # PLAYWRIGHT_BROWSERS_PATH must be a real ENV (not a build-time export): without
 # it the runner user looks in ~/.cache/ms-playwright and downloads anyway.
-# /ms-playwright is owned by runner so that a workflow's `playwright install`
-# safety net can still write there if the runtime pip resolves a newer 1.x
-# (different browser revision) than the one baked here.
+# Note: this does NOT dedupe the ~150-170MB Chromium download rfbrowser's
+# Node-side install performs — that one lands under actions/setup-python's
+# per-job hostedtoolcache path, which is wiped with the ephemeral pod. See
+# gh-runners docs/REGISTRY-OPERATIONS.md (follow-up) for the persistent-cache
+# option if that download cost needs eliminating too.
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN mkdir -p /ms-playwright \
     && python3 -m pip install --no-cache-dir 'playwright>=1.40,<2' \
-    && apt-get update \
-    && python3 -m playwright install --with-deps chromium \
-    && rm -rf /var/lib/apt/lists/* \
+    && python3 -m playwright install chromium \
     && chown -R runner:runner /ms-playwright
 
-# Verify installations
-RUN echo "=== Installed versions ===" \
-    && kubectl version --client --short 2>/dev/null || kubectl version --client \
-    && helm version \
+# Verify e2e-specific installations
+RUN echo "=== Installed versions (e2e) ===" \
+    && java -version \
     && python3 -m playwright --version \
-    && ls /ms-playwright \
-    && echo "Docker buildx installed for root and runner users"
+    && ls /ms-playwright
 
 USER runner
