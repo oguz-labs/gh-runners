@@ -117,18 +117,24 @@ RUN apt-get update && apt-get install -y \
 # package) and for pre-baking the actual browser binaries at the exact
 # revision Hibuki's `Browser` library (robotframework-browser==21.0.0, which
 # pins playwright 1.64.1) expects. Installed from the official arm64 tarball,
-# checked against nodejs.org's own published sha256 list, not nodesource's
-# curl-pipe-to-bash setup script -- that script runs as root with no checksum
-# verification at all, which is unnecessary risk for something this
-# mechanical (add an apt source, install one package).
+# not nodesource's curl-pipe-to-bash setup script (that ran as root with no
+# checksum verification at all). The integrity root is NODE_SHA256 below --
+# hardcoded in this file, from nodejs.org's own published SHASUMS256.txt at
+# fetch time (2026-11-16) -- not whatever SHASUMS256.txt the download host
+# happens to return at build time, which would make the "verification"
+# meaningless against a compromised/MITM'd host. --no-same-owner/-permissions
+# stop the archive's own uid/gid/modes from landing on image files verbatim.
 RUN set -eux; \
     NODE_VERSION=22.23.5; \
+    NODE_SHA256=2babb9eb5264860d540849f4b064a6fbdebcdc323657d9d382ce23d313fd5e09; \
     cd /tmp; \
     curl -fsSLO "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-arm64.tar.xz"; \
-    curl -fsSLO "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt"; \
-    grep " node-v${NODE_VERSION}-linux-arm64.tar.xz\$" SHASUMS256.txt | sha256sum -c -; \
-    tar -xJf "node-v${NODE_VERSION}-linux-arm64.tar.xz" -C /usr/local --strip-components=1; \
-    rm -f "node-v${NODE_VERSION}-linux-arm64.tar.xz" SHASUMS256.txt
+    echo "${NODE_SHA256}  node-v${NODE_VERSION}-linux-arm64.tar.xz" | sha256sum -c -; \
+    tar -xJf "node-v${NODE_VERSION}-linux-arm64.tar.xz" -C /usr/local --strip-components=1 \
+        --no-same-owner --no-same-permissions; \
+    chown -R root:root /usr/local/bin/node /usr/local/bin/npm /usr/local/bin/npx \
+        /usr/local/lib/node_modules /usr/local/include/node; \
+    rm -f "node-v${NODE_VERSION}-linux-arm64.tar.xz"
 
 # Pre-bake Playwright 1.64.1's Chromium + Firefox at $HOME/.cache/ms-playwright
 # for the `runner` user -- the exact path and version robotframework-browser's
