@@ -149,13 +149,17 @@ RUN set -eux; \
 # var points, so it has to already be set when `rfbrowser init --skip-browsers`
 # runs, which is the runner job's responsibility, not this image's.
 # `--with-deps` additionally installs any OS lib the explicit apt list above
-# might miss as Playwright revisions drift.
+# might miss as Playwright revisions drift. The `npm install -g` below runs
+# as root (still `base`'s default user at this point), which leaves
+# /home/runner/.npm (npm's cache under $HOME) root-owned -- chown it
+# alongside the browsers path, or the runner user's own `npm install` at job
+# time hits EACCES on that cache (seen in practice, v1.3.0).
 ENV PLAYWRIGHT_BROWSERS_PATH=/home/runner/.cache/ms-playwright
-RUN mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" \
+RUN mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" /home/runner/.npm \
     && npm install -g playwright@1.64.1 \
     && npx --yes playwright@1.64.1 install --with-deps chromium firefox \
     && python3 -m pip install --no-cache-dir 'playwright==1.64.1' \
-    && chown -R runner:runner /home/runner/.cache
+    && chown -R runner:runner /home/runner/.cache /home/runner/.npm
 
 # Verify e2e-specific installations
 RUN echo "=== Installed versions (e2e) ===" \
