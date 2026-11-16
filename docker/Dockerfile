@@ -116,11 +116,19 @@ RUN apt-get update && apt-get install -y \
 # Node.js, for rfbrowser (robotframework-browser's Node-side playwright
 # package) and for pre-baking the actual browser binaries at the exact
 # revision Hibuki's `Browser` library (robotframework-browser==21.0.0, which
-# pins playwright 1.64.1) expects. Nodesource's setup script is the
-# conventional way to get a current Node onto a Debian/Ubuntu base.
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y nodejs \
-    && rm -rf /var/lib/apt/lists/*
+# pins playwright 1.64.1) expects. Installed from the official arm64 tarball,
+# checked against nodejs.org's own published sha256 list, not nodesource's
+# curl-pipe-to-bash setup script -- that script runs as root with no checksum
+# verification at all, which is unnecessary risk for something this
+# mechanical (add an apt source, install one package).
+RUN set -eux; \
+    NODE_VERSION=22.23.5; \
+    cd /tmp; \
+    curl -fsSLO "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-arm64.tar.xz"; \
+    curl -fsSLO "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt"; \
+    grep " node-v${NODE_VERSION}-linux-arm64.tar.xz\$" SHASUMS256.txt | sha256sum -c -; \
+    tar -xJf "node-v${NODE_VERSION}-linux-arm64.tar.xz" -C /usr/local --strip-components=1; \
+    rm -f "node-v${NODE_VERSION}-linux-arm64.tar.xz" SHASUMS256.txt
 
 # Pre-bake Playwright 1.64.1's Chromium + Firefox at $HOME/.cache/ms-playwright
 # for the `runner` user -- the exact path and version robotframework-browser's
