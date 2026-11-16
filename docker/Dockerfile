@@ -78,13 +78,15 @@ FROM base AS e2e
 RUN apt-get update && apt-get install -y default-jre-headless \
     && rm -rf /var/lib/apt/lists/*
 
-# OS-level shared libs for headless Chromium. These are required at the ldconfig
-# level regardless of which runtime launches the browser — Python's `playwright`
-# pip package below, or the Node/npx-driven Chromium that Robot Framework's
-# `Browser` library (rfbrowser) downloads fresh via its own actions/setup-node
-# toolchain on every job. Listed explicitly (not via `playwright install
-# --with-deps`, which only covers whatever Playwright revision happens to be
-# invoked at bake time) so the fix holds even as that pinned revision drifts.
+# OS-level shared libs for headless Chromium + Firefox. These are required at
+# the ldconfig level regardless of which runtime launches the browser —
+# Python's `playwright` pip package below, or the Node/npx-driven browsers
+# that Robot Framework's `Browser` library (rfbrowser) downloads fresh via
+# its own actions/setup-node toolchain on every job. Listed explicitly (not
+# via `playwright install --with-deps`, which only covers whatever Playwright
+# revision happens to be invoked at bake time) so the fix holds even as that
+# pinned revision drifts. WebKit is intentionally not covered here: webkit
+# cells run on the org's persistent macOS runner, not this image.
 # Names are Ubuntu 24.04 (noble) t64-ABI package names — confirmed against
 # this image's own /etc/os-release, not guessed.
 RUN apt-get update && apt-get install -y \
@@ -104,28 +106,49 @@ RUN apt-get update && apt-get install -y \
     libcairo2 \
     libasound2t64 \
     libatspi2.0-0t64 \
+    libdbus-glib-1-2 \
+    libxt6t64 \
+    fonts-liberation \
+    fonts-noto-core \
+    fonts-noto-color-emoji \
     && rm -rf /var/lib/apt/lists/*
 
-# Pre-bake the Python `playwright` pip package + its own Chromium, for any
-# workflow step that imports Python's playwright directly (not every E2E job
-# goes through rfbrowser/Node). Harmless if unused.
-# PLAYWRIGHT_BROWSERS_PATH must be a real ENV (not a build-time export): without
-# it the runner user looks in ~/.cache/ms-playwright and downloads anyway.
-# Note: this does NOT dedupe the ~150-170MB Chromium download rfbrowser's
-# Node-side install performs — that one lands under actions/setup-python's
-# per-job hostedtoolcache path, which is wiped with the ephemeral pod. See
-# gh-runners docs/REGISTRY-OPERATIONS.md (follow-up) for the persistent-cache
-# option if that download cost needs eliminating too.
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-RUN mkdir -p /ms-playwright \
-    && python3 -m pip install --no-cache-dir 'playwright>=1.40,<2' \
-    && python3 -m playwright install chromium \
-    && chown -R runner:runner /ms-playwright
+# Node.js, for rfbrowser (robotframework-browser's Node-side playwright
+# package) and for pre-baking the actual browser binaries at the exact
+# revision Hibuki's `Browser` library (robotframework-browser==21.0.0, which
+# pins playwright 1.64.1) expects. Nodesource's setup script is the
+# conventional way to get a current Node onto a Debian/Ubuntu base.
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Pre-bake Playwright 1.64.1's Chromium + Firefox at $HOME/.cache/ms-playwright
+# for the `runner` user -- the exact path and version robotframework-browser's
+# CI step checks for and reuses via `rfbrowser init --skip-browsers` (that
+# command itself still npm-installs playwright's Node package at job runtime
+# from the lockfile; it needs npm registry egress, confirmed reachable from
+# this cluster's pods 2026-11-16). WebKit skipped on purpose: webkit cells run
+# on the org's persistent macOS runner, not this image.
+# PLAYWRIGHT_BROWSERS_PATH must be a real ENV (not a build-time export) and
+# must be the runner user's own $HOME/.cache/ms-playwright -- robotframework-browser
+# does not honor ~/.cache/ms-playwright by itself, it only looks where this
+# var points, so it has to already be set when `rfbrowser init --skip-browsers`
+# runs, which is the runner job's responsibility, not this image's.
+# `--with-deps` additionally installs any OS lib the explicit apt list above
+# might miss as Playwright revisions drift.
+ENV PLAYWRIGHT_BROWSERS_PATH=/home/runner/.cache/ms-playwright
+RUN mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" \
+    && npm install -g playwright@1.64.1 \
+    && npx --yes playwright@1.64.1 install --with-deps chromium firefox \
+    && python3 -m pip install --no-cache-dir 'playwright==1.64.1' \
+    && chown -R runner:runner /home/runner/.cache
 
 # Verify e2e-specific installations
 RUN echo "=== Installed versions (e2e) ===" \
     && java -version \
+    && node --version \
+    && npx playwright --version \
     && python3 -m playwright --version \
-    && ls /ms-playwright
+    && ls "$PLAYWRIGHT_BROWSERS_PATH"
 
 USER runner
