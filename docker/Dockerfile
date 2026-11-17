@@ -7,6 +7,8 @@ FROM summerwind/actions-runner-dind:latest AS base
 USER root
 
 # Install dependencies
+# openssh-client: actions/checkout needs it for an SSH deploy key (Hibuki's
+# hibuki-ai-tests checkout, 2026-11-17) -- the base image doesn't carry it.
 RUN apt-get update && apt-get install -y \
     curl \
     wget \
@@ -16,6 +18,7 @@ RUN apt-get update && apt-get install -y \
     iptables \
     sudo \
     software-properties-common \
+    openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Add deadsnakes PPA for Python 3.11 and install it
